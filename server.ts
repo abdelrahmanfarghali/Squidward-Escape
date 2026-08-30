@@ -3,7 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { Server, Socket } from 'socket.io';
 import http from 'http';
-import { GameState, Player, Role, HOUSE_X, HOUSE_Y, HOUSE_SIZE, PLAYER_SIZE, PROXIMITY_RADIUS } from './src/types';
+import { GameState, Player, Role, HOUSE_X, HOUSE_Y, HOUSE_SIZE, PLAYER_SIZE, PROXIMITY_RADIUS, MAP_WIDTH, MAP_HEIGHT, POWERUP_SIZE } from './src/types';
 import { checkCollision } from './src/shared';
 
 const PORT = 3000;
@@ -23,6 +23,7 @@ function createNewRoom(roomId: string, maxPlayers: number): GameState {
     winner: null,
     maxPlayers,
     isPractice: false,
+    powerUps: [],
   };
 }
 
@@ -46,6 +47,24 @@ function addBotsToRoom(room: GameState) {
       isBot: true
     };
   });
+}
+
+function checkPowerupCollection(room: GameState, p: Player, io: Server) {
+  const collectedIdx = room.powerUps.findIndex(pu => 
+    p.x < pu.x + POWERUP_SIZE &&
+    p.x + PLAYER_SIZE > pu.x &&
+    p.y < pu.y + POWERUP_SIZE &&
+    p.y + PLAYER_SIZE > pu.y
+  );
+
+  if (collectedIdx !== -1) {
+    const pu = room.powerUps[collectedIdx];
+    room.powerUps.splice(collectedIdx, 1);
+    p.activePowerUp = pu.type;
+    p.powerUpExpiresAt = Date.now() + 5000; // 5 seconds
+    io.to(room.roomId).emit('game_state', room); // Update clients
+    io.to(room.roomId).emit('play_audio', { type: 'powerup', playerId: p.id, role: p.role });
+  }
 }
 
 async function startServer() {
@@ -158,7 +177,8 @@ async function startServer() {
           room.anger = 0;
           room.winner = null;
           room.isPractice = startAsPractice;
-          
+          room.powerUps = [];
+
           if (startAsPractice) {
             addBotsToRoom(room);
           } else {
@@ -168,7 +188,7 @@ async function startServer() {
             });
           }
           
-          // Reset positions
+          // Reset positions and powerups
           Object.values(room.players).forEach(p => {
             if (p.role === 'SHAFIQ') {
               p.x = 100;
@@ -177,6 +197,8 @@ async function startServer() {
               p.x = 200;
               p.y = 200;
             }
+            p.activePowerUp = null;
+            p.powerUpExpiresAt = 0;
           });
           
           io.to(roomId).emit('game_state', room);
@@ -200,7 +222,10 @@ async function startServer() {
       const room = rooms.get(roomId);
       if (room && room.status === 'PLAYING' && room.players[socket.id]) {
         const p = room.players[socket.id];
-        const speed = p.role === 'SHAFIQ' ? 8 : 7; // Shafiq is slightly faster
+        let speed = p.role === 'SHAFIQ' ? 8 : 7; // Shafiq is slightly faster
+        if (p.activePowerUp === 'SPEED') {
+          speed += 4;
+        }
         
         // Normalize vector to prevent diagonal speed boost
         const length = Math.sqrt(dx * dx + dy * dy);
@@ -210,13 +235,28 @@ async function startServer() {
           
           let newX = p.x + nx;
           let newY = p.y + ny;
-
+          let collided = false;
+          
           if (!checkCollision(newX, p.y, PLAYER_SIZE)) {
             p.x = newX;
+          } else {
+            collided = true;
           }
           if (!checkCollision(p.x, newY, PLAYER_SIZE)) {
             p.y = newY;
+          } else {
+            collided = true;
           }
+          
+          if (collided) {
+            const now = Date.now();
+            if (!p.lastCollisionTime || now - p.lastCollisionTime > 500) {
+              p.lastCollisionTime = now;
+              io.to(roomId).emit('play_audio', { type: 'collision', playerId: p.id, role: p.role });
+            }
+          }
+          
+          checkPowerupCollection(room, p, io);
 
           // Check if Shafiq reached the house
           if (p.role === 'SHAFIQ') {
@@ -230,6 +270,7 @@ async function startServer() {
               room.winner = 'SHAFIQ';
               p.score += 1;
               io.to(roomId).emit('game_state', room);
+              io.to(roomId).emit('play_audio', { type: 'win', playerId: p.id, role: p.role });
             }
           }
         }
@@ -249,17 +290,19 @@ async function startServer() {
           if (shafiq) {
             const dist = Math.sqrt(Math.pow(p.x - shafiq.x, 2) + Math.pow(p.y - shafiq.y, 2));
             if (dist < PROXIMITY_RADIUS) {
-              room.anger += 20; // Increase anger
-              if (room.anger >= room.maxAnger) {
-                room.status = 'GAME_OVER';
-                room.winner = 'CHASERS';
-                
-                // Give points to all chasers
-                Object.values(room.players).forEach(pl => {
-                   if(pl.role !== 'SHAFIQ') pl.score += 1;
-                });
-                
-                io.to(roomId).emit('game_state', room);
+              if (shafiq.activePowerUp !== 'SHIELD') {
+                room.anger += 20; // Increase anger
+                if (room.anger >= room.maxAnger) {
+                  room.status = 'GAME_OVER';
+                  room.winner = 'CHASERS';
+                  
+                  // Give points to all chasers
+                  Object.values(room.players).forEach(pl => {
+                     if(pl.role !== 'SHAFIQ') pl.score += 1;
+                  });
+                  
+                  io.to(roomId).emit('game_state', room);
+                }
               }
             }
           }
@@ -342,19 +385,35 @@ async function startServer() {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist > 0) {
-          const speed = 7;
+          let speed = 7;
+          if (bot.activePowerUp === 'SPEED') speed += 4;
           const nx = (dx / dist) * speed;
           const ny = (dy / dist) * speed;
 
           let newX = bot.x + nx;
           let newY = bot.y + ny;
+          let collided = false;
 
           if (!checkCollision(newX, bot.y, PLAYER_SIZE)) {
             bot.x = newX;
+          } else {
+            collided = true;
           }
           if (!checkCollision(bot.x, newY, PLAYER_SIZE)) {
             bot.y = newY;
+          } else {
+            collided = true;
           }
+
+          if (collided) {
+            const now = Date.now();
+            if (!bot.lastCollisionTime || now - bot.lastCollisionTime > 500) {
+              bot.lastCollisionTime = now;
+              io.to(room.roomId).emit('play_audio', { type: 'collision', playerId: bot.id, role: bot.role });
+            }
+          }
+          
+          checkPowerupCollection(room, bot, io);
           
           // Check if bot Shafiq reached the house
           if (
@@ -367,6 +426,7 @@ async function startServer() {
             room.winner = 'SHAFIQ';
             bot.score += 1;
             io.to(room.roomId).emit('game_state', room);
+            io.to(room.roomId).emit('play_audio', { type: 'win', playerId: bot.id, role: bot.role });
           }
         }
       } else {
@@ -376,19 +436,35 @@ async function startServer() {
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist > 0) {
-          const speed = 6;
+          let speed = 6;
+          if (bot.activePowerUp === 'SPEED') speed += 4;
           const nx = (dx / dist) * speed;
           const ny = (dy / dist) * speed;
 
           let newX = bot.x + nx;
           let newY = bot.y + ny;
+          let collided = false;
 
           if (!checkCollision(newX, bot.y, PLAYER_SIZE)) {
             bot.x = newX;
+          } else {
+            collided = true;
           }
           if (!checkCollision(bot.x, newY, PLAYER_SIZE)) {
             bot.y = newY;
+          } else {
+            collided = true;
           }
+
+          if (collided) {
+            const now = Date.now();
+            if (!bot.lastCollisionTime || now - bot.lastCollisionTime > 500) {
+              bot.lastCollisionTime = now;
+              io.to(room.roomId).emit('play_audio', { type: 'collision', playerId: bot.id, role: bot.role });
+            }
+          }
+          
+          checkPowerupCollection(room, bot, io);
         }
 
         if (dist < 250) { // PROXIMITY_RADIUS
@@ -396,11 +472,13 @@ async function startServer() {
             bot.isCalling = true;
             io.to(room.roomId).emit('play_audio', { type: 'call', playerId: bot.id, role: bot.role });
             
-            room.anger += 20;
-            if (room.anger >= room.maxAnger) {
-              room.status = 'GAME_OVER';
-              room.winner = 'CHASERS';
-              io.to(room.roomId).emit('game_state', room);
+            if (shafiq.activePowerUp !== 'SHIELD') {
+              room.anger += 20;
+              if (room.anger >= room.maxAnger) {
+                room.status = 'GAME_OVER';
+                room.winner = 'CHASERS';
+                io.to(room.roomId).emit('game_state', room);
+              }
             }
             
             setTimeout(() => {
@@ -414,8 +492,38 @@ async function startServer() {
 
   // Game loop to broadcast state 20 times a second
   setInterval(() => {
+    const now = Date.now();
     for (const [roomId, room] of rooms.entries()) {
       if (room.status === 'PLAYING') {
+        // Handle powerup spawning
+        if (Math.random() < 0.005 && room.powerUps.length < 5) {
+          const type = Math.random() > 0.5 ? 'SPEED' : 'SHIELD';
+          // Spawn in a random position away from borders
+          const x = 100 + Math.random() * (MAP_WIDTH - 200);
+          const y = 100 + Math.random() * (MAP_HEIGHT - 200);
+          room.powerUps.push({
+            id: Math.random().toString(36).substring(2, 8),
+            type,
+            x,
+            y,
+          });
+          io.to(roomId).emit('game_state', room); // broadcast full state when powerups change
+        }
+
+        // Expire player powerups
+        let stateChanged = false;
+        Object.values(room.players).forEach(p => {
+          if (p.activePowerUp && p.powerUpExpiresAt && now > p.powerUpExpiresAt) {
+            p.activePowerUp = null;
+            p.powerUpExpiresAt = 0;
+            stateChanged = true;
+          }
+        });
+        
+        if (stateChanged) {
+          io.to(roomId).emit('game_state', room);
+        }
+
         if (room.isPractice) {
           updateBots(room);
         }

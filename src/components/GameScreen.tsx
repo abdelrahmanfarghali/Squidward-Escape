@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { socket } from '../socket';
-import { GameState, MAP_WIDTH, MAP_HEIGHT, HOUSE_X, HOUSE_Y, HOUSE_SIZE, PLAYER_SIZE, Player, Role, PROXIMITY_RADIUS } from '../types';
+import { GameState, MAP_WIDTH, MAP_HEIGHT, HOUSE_X, HOUSE_Y, HOUSE_SIZE, PLAYER_SIZE, Player, Role, PROXIMITY_RADIUS, POWERUP_SIZE } from '../types';
 import { OBSTACLES } from '../shared';
 import squidwardImg from '../assets/images/squidward_funky_1788122008186.jpg';
 import spongebobImg from '../assets/images/spongebob_funky_1788122021542.jpg';
@@ -50,18 +50,43 @@ export default function GameScreen({ gameState }: Props) {
     
     // Audio Cues
     const handlePlayAudio = (data: { type: string, playerId: string, role: string }) => {
-      // Create a simple synthetic beep for now
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContext) {
         if (!audioCtx) audioCtx = new AudioContext();
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        const osc = audioCtx.createOscillator();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
-        osc.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.1);
+        
+        const playTone = (freq: number, type: OscillatorType, duration: number, endFreq?: number) => {
+          const osc = audioCtx!.createOscillator();
+          const gainNode = audioCtx!.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, audioCtx!.currentTime);
+          if (endFreq) {
+            osc.frequency.exponentialRampToValueAtTime(endFreq, audioCtx!.currentTime + duration);
+          }
+          
+          gainNode.gain.setValueAtTime(0.1, audioCtx!.currentTime); // Keep volume reasonable
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx!.currentTime + duration);
+          
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx!.destination);
+          
+          osc.start();
+          osc.stop(audioCtx!.currentTime + duration);
+        };
+
+        if (data.type === 'call') {
+          playTone(400, 'square', 0.1, 100);
+        } else if (data.type === 'collision') {
+          playTone(150, 'sawtooth', 0.15, 50); // Low thud
+        } else if (data.type === 'powerup') {
+          playTone(600, 'sine', 0.1, 1200); // Quick rising chime
+          setTimeout(() => playTone(800, 'sine', 0.2, 1600), 100);
+        } else if (data.type === 'win') {
+          // Triumphant jingle
+          playTone(400, 'square', 0.15);
+          setTimeout(() => playTone(500, 'square', 0.15), 150);
+          setTimeout(() => playTone(600, 'square', 0.3), 300);
+        }
       }
     };
     socket.on('play_audio', handlePlayAudio);
@@ -215,6 +240,25 @@ export default function GameScreen({ gameState }: Props) {
           />
         ))}
 
+        {/* PowerUps */}
+        {gameState.powerUps?.map(pu => (
+          <div
+            key={pu.id}
+            className={`absolute flex items-center justify-center animate-bounce shadow-xl border-2 z-10 ${
+              pu.type === 'SPEED' ? 'bg-yellow-400 border-yellow-600 text-yellow-900' : 'bg-blue-400 border-blue-600 text-blue-900'
+            }`}
+            style={{
+              left: pu.x,
+              top: pu.y,
+              width: POWERUP_SIZE,
+              height: POWERUP_SIZE,
+              borderRadius: '50%'
+            }}
+          >
+            {pu.type === 'SPEED' ? '⚡' : '🛡️'}
+          </div>
+        ))}
+
         {/* Players */}
         {(Object.values(localPlayers) as Player[]).map(p => {
           if (!p.role) return null;
@@ -258,7 +302,10 @@ export default function GameScreen({ gameState }: Props) {
 
               {/* Player Body */}
               <div 
-                className={`w-full h-full rounded-full border-4 border-gray-900 shadow-lg flex items-center justify-center relative overflow-hidden transition-all duration-300 ${isAngry ? 'scale-110' : ''}`}
+                className={`w-full h-full rounded-full border-4 shadow-lg flex items-center justify-center relative overflow-hidden transition-all duration-300 ${isAngry ? 'scale-110' : ''} ${
+                  p.activePowerUp === 'SPEED' ? 'border-yellow-400 ring-4 ring-yellow-400/50' : 
+                  p.activePowerUp === 'SHIELD' ? 'border-blue-400 ring-4 ring-blue-400/50' : 'border-gray-900'
+                }`}
                 style={{ 
                   backgroundColor: ROLE_COLORS[p.role],
                   backgroundImage: `url(${ROLE_IMAGES[p.role]})`,
@@ -274,7 +321,19 @@ export default function GameScreen({ gameState }: Props) {
                     <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-gray-200/50 rounded-full animate-ping"></div>
                   </>
                 )}
+                
+                {/* Shield Overlay */}
+                {p.activePowerUp === 'SHIELD' && (
+                  <div className="absolute inset-0 bg-blue-500/30 mix-blend-overlay pointer-events-none rounded-full"></div>
+                )}
               </div>
+              
+              {/* Powerup Icon */}
+              {p.activePowerUp && (
+                <div className="absolute -top-6 right-0 text-lg animate-pulse z-30">
+                  {p.activePowerUp === 'SPEED' ? '⚡' : '🛡️'}
+                </div>
+              )}
               
               {/* Name Tag */}
               <div className="absolute -bottom-6 bg-gray-900/80 text-white text-[10px] px-2 py-0.5 rounded font-bold whitespace-nowrap">
