@@ -10,6 +10,7 @@ export interface Player {
   ready: boolean;
   isHost: boolean;
   score: number; // We might want to keep track of wins over multiple rounds
+  isBot?: boolean;
 }
 
 export type GameStatus = 'LOBBY' | 'PLAYING' | 'GAME_OVER';
@@ -31,7 +32,7 @@ export const MAP_HEIGHT = 2000;
 export const HOUSE_X = MAP_WIDTH - 200;
 export const HOUSE_Y = MAP_HEIGHT - 200;
 export const HOUSE_SIZE = 150;
-export const PLAYER_SIZE = 40;
+export const PLAYER_SIZE = 72; // Increased player size
 export const PROXIMITY_RADIUS = 250;
 export const CALL_COOLDOWN = 1000;
 

@@ -26,6 +26,25 @@ function createNewRoom(roomId: string, maxPlayers: number): GameState {
   };
 }
 
+function addBotsToRoom(room: GameState) {
+  const botRoles: Role[] = ['SPONGEBOB', 'SANDY', 'PATRICK', 'PLANKTON'];
+  botRoles.forEach((role, i) => {
+    const botId = `bot_${role.toLowerCase()}`;
+    room.players[botId] = {
+      id: botId,
+      name: `Bot ${role}`,
+      role: role,
+      x: 200 + i * 50,
+      y: 200 + i * 50,
+      isCalling: false,
+      ready: true,
+      isHost: false,
+      score: 0,
+      isBot: true
+    };
+  });
+}
+
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
@@ -57,6 +76,7 @@ async function startServer() {
 
       room.status = 'PLAYING';
       room.isPractice = true;
+      addBotsToRoom(room);
 
       socket.join(roomId);
       io.to(roomId).emit('game_state', room);
@@ -135,6 +155,15 @@ async function startServer() {
           room.winner = null;
           room.isPractice = startAsPractice;
           
+          if (startAsPractice) {
+            addBotsToRoom(room);
+          } else {
+            // Remove any bots if switching back to normal mode
+            Object.keys(room.players).forEach(k => {
+              if (room.players[k].isBot) delete room.players[k];
+            });
+          }
+          
           // Reset positions
           Object.values(room.players).forEach(p => {
             if (p.role === 'SHAFIQ') {
@@ -155,6 +184,10 @@ async function startServer() {
       const room = rooms.get(roomId);
       if (room && room.status === 'GAME_OVER' && room.players[socket.id]?.isHost) {
         room.status = 'LOBBY';
+        // Clean up bots
+        Object.keys(room.players).forEach(k => {
+          if (room.players[k].isBot) delete room.players[k];
+        });
         io.to(roomId).emit('game_state', room);
       }
     });
@@ -260,10 +293,60 @@ async function startServer() {
     });
   });
 
+  const updateBots = (room: GameState) => {
+    const shafiq = Object.values(room.players).find(p => p.role === 'SHAFIQ');
+    if (!shafiq || room.status !== 'PLAYING') return;
+
+    Object.values(room.players).forEach(bot => {
+      if (!bot.isBot) return;
+
+      const dx = shafiq.x - bot.x;
+      const dy = shafiq.y - bot.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > 0) {
+        const speed = 6;
+        const nx = (dx / dist) * speed;
+        const ny = (dy / dist) * speed;
+
+        let newX = bot.x + nx;
+        let newY = bot.y + ny;
+
+        if (!checkCollision(newX, bot.y, PLAYER_SIZE)) {
+          bot.x = newX;
+        }
+        if (!checkCollision(bot.x, newY, PLAYER_SIZE)) {
+          bot.y = newY;
+        }
+      }
+
+      if (dist < PROXIMITY_RADIUS) {
+        if (Math.random() < 0.05 && !bot.isCalling) {
+          bot.isCalling = true;
+          io.to(room.roomId).emit('play_audio', { type: 'call', playerId: bot.id, role: bot.role });
+          
+          room.anger += 20;
+          if (room.anger >= room.maxAnger) {
+            room.status = 'GAME_OVER';
+            room.winner = 'CHASERS';
+            io.to(room.roomId).emit('game_state', room);
+          }
+          
+          setTimeout(() => {
+            if (room.players[bot.id]) bot.isCalling = false;
+          }, 500);
+        }
+      }
+    });
+  };
+
   // Game loop to broadcast state 20 times a second
   setInterval(() => {
     for (const [roomId, room] of rooms.entries()) {
       if (room.status === 'PLAYING') {
+        if (room.isPractice) {
+          updateBots(room);
+        }
         io.to(roomId).emit('sync', { players: room.players, anger: room.anger });
       }
     }
