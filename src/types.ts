@@ -21,6 +21,8 @@ export interface GameState {
   anger: number;
   maxAnger: number;
   winner: 'SHAFIQ' | 'CHASERS' | null;
+  maxPlayers: number;
+  isPractice: boolean;
 }
 
 // Map Configuration

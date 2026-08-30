@@ -1,17 +1,22 @@
 import React from 'react';
 import { socket } from '../socket';
 import { GameState, Role } from '../types';
+import squidwardImg from '../assets/images/squidward_pixel_1788120183042.jpg';
+import spongebobImg from '../assets/images/spongebob_pixel_1788120195895.jpg';
+import sandyImg from '../assets/images/sandy_pixel_1788120209155.jpg';
+import patrickImg from '../assets/images/patrick_pixel_1788120221830.jpg';
+import planktonImg from '../assets/images/plankton_pixel_1788120234070.jpg';
 
 interface Props {
   gameState: GameState;
 }
 
-const ROLES: { id: Role, name: string, color: string }[] = [
-  { id: 'SHAFIQ', name: 'Shafiq (Squidward)', color: 'bg-teal-400' },
-  { id: 'SPONGEBOB', name: 'Sponge Bob', color: 'bg-yellow-400' },
-  { id: 'SANDY', name: 'Sandy Cheeks', color: 'bg-orange-300' },
-  { id: 'PATRICK', name: 'Patrick', color: 'bg-pink-400' },
-  { id: 'PLANKTON', name: 'Plankton', color: 'bg-green-600' },
+const ROLES: { id: Role, name: string, image: string }[] = [
+  { id: 'SHAFIQ', name: 'Shafiq (Squidward)', image: squidwardImg },
+  { id: 'SPONGEBOB', name: 'Sponge Bob', image: spongebobImg },
+  { id: 'SANDY', name: 'Sandy Cheeks', image: sandyImg },
+  { id: 'PATRICK', name: 'Patrick', image: patrickImg },
+  { id: 'PLANKTON', name: 'Plankton', image: planktonImg },
 ];
 
 export default function LobbyScreen({ gameState }: Props) {
@@ -25,10 +30,6 @@ export default function LobbyScreen({ gameState }: Props) {
     socket.emit('toggle_ready', { roomId: gameState.roomId });
   };
 
-  const handleStart = () => {
-    socket.emit('start_game', { roomId: gameState.roomId });
-  };
-
   const isRoleTaken = (role: Role) => {
     return Object.values(gameState.players).some(p => p.role === role && p.id !== me.id);
   };
@@ -36,6 +37,7 @@ export default function LobbyScreen({ gameState }: Props) {
   const hasShafiq = Object.values(gameState.players).some(p => p.role === 'SHAFIQ');
   const hasChaser = Object.values(gameState.players).some(p => p.role !== 'SHAFIQ' && p.role !== null);
   const canStart = me.isHost && hasShafiq && hasChaser;
+  const canPractice = me.isHost && hasShafiq;
 
   return (
     <div className="min-h-screen bg-sky-200 flex flex-col items-center p-8">
@@ -46,7 +48,7 @@ export default function LobbyScreen({ gameState }: Props) {
             Room: {gameState.roomId}
           </h2>
           <p className="font-semibold mt-2">
-            Players: {Object.keys(gameState.players).length} / 5
+            Players: {Object.keys(gameState.players).length} / {gameState.maxPlayers || 5}
           </p>
           {gameState.winner && (
             <div className="mt-4 bg-yellow-300 text-yellow-900 font-bold p-3 rounded-lg inline-block shadow-sm">
@@ -61,19 +63,30 @@ export default function LobbyScreen({ gameState }: Props) {
           <div className="space-y-4">
             <h3 className="text-2xl font-bold text-gray-800 border-b-2 border-gray-200 pb-2">Lobby Members</h3>
             <ul className="space-y-3">
-              {Object.values(gameState.players).map(p => (
-                <li key={p.id} className="flex items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-100 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-lg">{p.name} {p.id === me.id ? '(You)' : ''}</span>
-                    {p.isHost && <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full font-bold">HOST</span>}
-                  </div>
-                  <div className="text-right">
-                    <div className={`font-semibold ${p.role ? 'text-gray-800' : 'text-gray-400'}`}>
-                      {p.role ? ROLES.find(r => r.id === p.role)?.name : 'Selecting...'}
+              {Object.values(gameState.players).map(p => {
+                const pRoleInfo = ROLES.find(r => r.id === p.role);
+                return (
+                  <li key={p.id} className="flex items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      {pRoleInfo && (
+                        <div 
+                          className="w-10 h-10 rounded-full bg-cover bg-center border-2 border-gray-300"
+                          style={{ backgroundImage: `url(${pRoleInfo.image})` }}
+                        />
+                      )}
+                      <div className="flex flex-col">
+                        <span className="font-bold text-lg leading-tight">{p.name} {p.id === me.id ? '(You)' : ''}</span>
+                        {p.isHost && <span className="text-amber-600 text-xs font-bold">HOST</span>}
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                    <div className="text-right">
+                      <div className={`font-semibold ${p.role ? 'text-gray-800' : 'text-gray-400'}`}>
+                        {pRoleInfo ? pRoleInfo.name : 'Selecting...'}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
@@ -96,7 +109,10 @@ export default function LobbyScreen({ gameState }: Props) {
                     `}
                   >
                     <div className="flex items-center gap-4">
-                      <div className={`w-8 h-8 rounded-full ${role.color} border-2 border-black/10`} />
+                      <div 
+                        className={`w-10 h-10 rounded-full border-2 border-black/10 bg-cover bg-center`}
+                        style={{ backgroundImage: `url(${role.image})` }}
+                      />
                       <span className={taken && !isMe ? 'text-gray-500' : 'text-gray-800'}>{role.name}</span>
                     </div>
                     {isMe && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-500">✓</div>}
@@ -107,15 +123,26 @@ export default function LobbyScreen({ gameState }: Props) {
 
             <div className="pt-6">
               {me.isHost ? (
-                <button 
-                  onClick={handleStart}
-                  disabled={!canStart}
-                  className={`w-full py-4 rounded-xl font-black text-xl text-white transition-all shadow-lg
-                    ${canStart ? 'bg-green-500 hover:bg-green-600 hover:scale-105 active:scale-95' : 'bg-gray-400 cursor-not-allowed'}
-                  `}
-                >
-                  START CHAOS
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={() => socket.emit('start_game', { roomId: gameState.roomId, practiceMode: false })}
+                    disabled={!canStart}
+                    className={`w-full py-4 rounded-xl font-black text-xl text-white transition-all shadow-lg
+                      ${canStart ? 'bg-green-500 hover:bg-green-600 hover:scale-105 active:scale-95' : 'bg-gray-400 cursor-not-allowed'}
+                    `}
+                  >
+                    START CHAOS
+                  </button>
+                  <button 
+                    onClick={() => socket.emit('start_game', { roomId: gameState.roomId, practiceMode: true })}
+                    disabled={!canPractice}
+                    className={`w-full py-3 rounded-xl font-bold text-lg text-white transition-all shadow-md
+                      ${canPractice ? 'bg-teal-500 hover:bg-teal-600 hover:scale-105 active:scale-95' : 'bg-gray-300 cursor-not-allowed'}
+                    `}
+                  >
+                    SOLO PRACTICE
+                  </button>
+                </div>
               ) : (
                 <div className="w-full py-4 rounded-xl bg-gray-100 font-bold text-xl text-center text-gray-500">
                   Waiting for host to start...

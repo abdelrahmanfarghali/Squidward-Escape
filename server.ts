@@ -13,7 +13,7 @@ const rooms = new Map<string, GameState>();
 
 const generateRoomId = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
-function createNewRoom(roomId: string): GameState {
+function createNewRoom(roomId: string, maxPlayers: number): GameState {
   return {
     roomId,
     status: 'LOBBY',
@@ -21,6 +21,8 @@ function createNewRoom(roomId: string): GameState {
     anger: 0,
     maxAnger: 1000, // 1000 points to anger
     winner: null,
+    maxPlayers,
+    isPractice: false,
   };
 }
 
@@ -36,17 +38,17 @@ async function startServer() {
   io.on('connection', (socket: Socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('join_room', ({ roomId, playerName }) => {
+    socket.on('join_room', ({ roomId, playerName, maxPlayers }) => {
       roomId = roomId.toUpperCase();
       let room = rooms.get(roomId);
       
       if (!room) {
-        room = createNewRoom(roomId);
+        room = createNewRoom(roomId, maxPlayers || 5);
         rooms.set(roomId, room);
       }
 
       const playerCount = Object.keys(room.players).length;
-      if (playerCount >= MAX_PLAYERS && !room.players[socket.id]) {
+      if (playerCount >= room.maxPlayers && !room.players[socket.id]) {
         socket.emit('error', 'Room is full');
         return;
       }
@@ -94,17 +96,20 @@ async function startServer() {
       }
     });
 
-    socket.on('start_game', ({ roomId }) => {
+    socket.on('start_game', ({ roomId, practiceMode }) => {
       const room = rooms.get(roomId);
-      if (room && room.status === 'LOBBY' && room.players[socket.id]?.isHost) {
+      if (room && (room.status === 'LOBBY' || room.status === 'GAME_OVER') && room.players[socket.id]?.isHost) {
         // Check if Shafiq exists and there is at least one chaser
         const hasShafiq = Object.values(room.players).some(p => p.role === 'SHAFIQ');
         const hasChaser = Object.values(room.players).some(p => p.role !== 'SHAFIQ' && p.role !== null);
         
-        if (hasShafiq && hasChaser) {
+        const startAsPractice = practiceMode !== undefined ? practiceMode : room.isPractice;
+
+        if ((hasShafiq && hasChaser) || (startAsPractice && hasShafiq)) {
           room.status = 'PLAYING';
           room.anger = 0;
           room.winner = null;
+          room.isPractice = startAsPractice;
           
           // Reset positions
           Object.values(room.players).forEach(p => {
@@ -119,6 +124,14 @@ async function startServer() {
           
           io.to(roomId).emit('game_state', room);
         }
+      }
+    });
+
+    socket.on('return_to_lobby', ({ roomId }) => {
+      const room = rooms.get(roomId);
+      if (room && room.status === 'GAME_OVER' && room.players[socket.id]?.isHost) {
+        room.status = 'LOBBY';
+        io.to(roomId).emit('game_state', room);
       }
     });
 

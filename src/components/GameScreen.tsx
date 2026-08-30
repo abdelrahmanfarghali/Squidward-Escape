@@ -134,6 +134,11 @@ export default function GameScreen({ gameState }: Props) {
       
       {/* UI Overlay */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-50">
+        {gameState.isPractice && (
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-500 text-white font-black px-4 py-1 rounded-full shadow-lg text-sm tracking-widest border-2 border-gray-900 z-50 whitespace-nowrap">
+            PRACTICE MODE
+          </div>
+        )}
         <div className="bg-white/90 backdrop-blur p-4 rounded-2xl shadow-xl border-4 border-gray-900">
           <div className="flex justify-between font-bold mb-2 uppercase text-sm tracking-widest text-gray-700">
             <span>Shafiq's Anger</span>
@@ -294,12 +299,20 @@ export default function GameScreen({ gameState }: Props) {
                 : 'The chasers pushed him over the edge!'}
             </p>
             {me?.isHost ? (
-              <button
-                onClick={() => socket.emit('start_game', { roomId: gameState.roomId })}
-                className="bg-amber-500 hover:bg-amber-600 text-white font-black text-2xl py-4 px-8 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all"
-              >
-                PLAY AGAIN
-              </button>
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={() => socket.emit('start_game', { roomId: gameState.roomId })}
+                  className="bg-amber-500 hover:bg-amber-600 text-white font-black text-xl py-3 px-6 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all"
+                >
+                  PLAY AGAIN
+                </button>
+                <button
+                  onClick={() => socket.emit('return_to_lobby', { roomId: gameState.roomId })}
+                  className="bg-sky-500 hover:bg-sky-600 text-white font-black text-xl py-3 px-6 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all"
+                >
+                  LOBBY
+                </button>
+              </div>
             ) : (
               <p className="text-xl font-bold text-gray-400">Waiting for host to restart...</p>
             )}
