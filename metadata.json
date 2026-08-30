@@ -1,0 +1,6 @@
+{
+  "name": "Shafiq's Great Escape",
+  "description": "A chaotic 1v4 asymmetrical multiplayer party game where Chasers relentlessly pursue Shafiq.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
