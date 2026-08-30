@@ -2,6 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { socket } from '../socket';
 import { GameState, MAP_WIDTH, MAP_HEIGHT, HOUSE_X, HOUSE_Y, HOUSE_SIZE, PLAYER_SIZE, Player, Role, PROXIMITY_RADIUS } from '../types';
 import { OBSTACLES } from '../shared';
+import squidwardImg from '../assets/images/squidward_pixel_1788120183042.jpg';
+import spongebobImg from '../assets/images/spongebob_pixel_1788120195895.jpg';
+import sandyImg from '../assets/images/sandy_pixel_1788120209155.jpg';
+import patrickImg from '../assets/images/patrick_pixel_1788120221830.jpg';
+import planktonImg from '../assets/images/plankton_pixel_1788120234070.jpg';
+import bgImg from '../assets/images/bikini_bottom_bg_1788120246415.jpg';
 
 interface Props {
   gameState: GameState;
@@ -13,6 +19,14 @@ const ROLE_COLORS: Record<Role, string> = {
   SANDY: '#fdba74', // orange-300
   PATRICK: '#f472b6', // pink-400
   PLANKTON: '#16a34a', // green-600
+};
+
+const ROLE_IMAGES: Record<Role, string> = {
+  SHAFIQ: squidwardImg,
+  SPONGEBOB: spongebobImg,
+  SANDY: sandyImg,
+  PATRICK: patrickImg,
+  PLANKTON: planktonImg,
 };
 
 export default function GameScreen({ gameState }: Props) {
@@ -159,8 +173,9 @@ export default function GameScreen({ gameState }: Props) {
           width: MAP_WIDTH,
           height: MAP_HEIGHT,
           transform: `translate(${-cameraX}px, ${-cameraY}px)`,
-          backgroundImage: 'radial-gradient(#0f766e 2px, transparent 2px)',
-          backgroundSize: '40px 40px',
+          backgroundImage: `url(${bgImg})`,
+          backgroundSize: '1000px',
+          backgroundRepeat: 'repeat',
         }}
       >
         {/* House */}
@@ -235,20 +250,21 @@ export default function GameScreen({ gameState }: Props) {
 
               {/* Player Body */}
               <div 
-                className={`w-full h-full rounded-full border-4 border-gray-900 shadow-lg flex items-center justify-center relative overflow-hidden transition-all duration-300 ${isAngry ? 'bg-red-500 scale-110' : ''}`}
-                style={{ backgroundColor: isAngry ? '#ef4444' : ROLE_COLORS[p.role] }}
+                className={`w-full h-full rounded-full border-4 border-gray-900 shadow-lg flex items-center justify-center relative overflow-hidden transition-all duration-300 ${isAngry ? 'scale-110' : ''}`}
+                style={{ 
+                  backgroundColor: ROLE_COLORS[p.role],
+                  backgroundImage: `url(${ROLE_IMAGES[p.role]})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
               >
                 {/* Face/Steam for Shafiq */}
                 {isAngry && (
                   <>
+                    <div className="absolute inset-0 bg-red-500/60 mix-blend-multiply pointer-events-none"></div>
                     <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-gray-200/50 rounded-full animate-ping"></div>
                     <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-gray-200/50 rounded-full animate-ping"></div>
                   </>
-                )}
-                {isShafiq ? (
-                  <div className={`text-xl ${isAngry ? 'animate-bounce' : ''}`}>{isAngry ? '🤬' : (angerPercentage > 50 ? '😠' : '😐')}</div>
-                ) : (
-                  <div className="text-sm font-black text-gray-900">{p.role[0]}</div>
                 )}
               </div>
               
