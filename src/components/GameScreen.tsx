@@ -2,12 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { socket } from '../socket';
 import { GameState, MAP_WIDTH, MAP_HEIGHT, HOUSE_X, HOUSE_Y, HOUSE_SIZE, PLAYER_SIZE, Player, Role, PROXIMITY_RADIUS } from '../types';
 import { OBSTACLES } from '../shared';
-import squidwardImg from '../assets/images/squidward_pixel_1788120183042.jpg';
-import spongebobImg from '../assets/images/spongebob_pixel_1788120195895.jpg';
-import sandyImg from '../assets/images/sandy_pixel_1788120209155.jpg';
-import patrickImg from '../assets/images/patrick_pixel_1788120221830.jpg';
-import planktonImg from '../assets/images/plankton_pixel_1788120234070.jpg';
-import bgImg from '../assets/images/bikini_bottom_bg_1788120246415.jpg';
+import squidwardImg from '../assets/images/squidward_funky_1788122008186.jpg';
+import spongebobImg from '../assets/images/spongebob_funky_1788122021542.jpg';
+import sandyImg from '../assets/images/sandy_funky_1788122037010.jpg';
+import patrickImg from '../assets/images/patrick_funky_1788122049362.jpg';
+import planktonImg from '../assets/images/plankton_funky_1788122060611.jpg';
+import bgImg from '../assets/images/bikini_bottom_funky_1788122072020.jpg';
+import moaiHouseImg from '../assets/images/moai_house_funky_1788122084121.jpg';
 
 interface Props {
   gameState: GameState;
@@ -185,16 +186,18 @@ export default function GameScreen({ gameState }: Props) {
       >
         {/* House */}
         <div 
-          className="absolute border-8 border-gray-900 bg-gray-700 flex items-center justify-center overflow-hidden"
+          className="absolute border-8 border-gray-900 flex items-center justify-center overflow-hidden"
           style={{
             left: HOUSE_X,
             top: HOUSE_Y,
             width: HOUSE_SIZE,
             height: HOUSE_SIZE,
-            borderRadius: '20px 20px 0 0'
+            borderRadius: '20px 20px 0 0',
+            backgroundImage: `url(${moaiHouseImg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
           }}
         >
-          <div className="text-4xl">🗿</div>
         </div>
 
         {/* Obstacles */}

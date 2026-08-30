@@ -1,11 +1,11 @@
 import React from 'react';
 import { socket } from '../socket';
 import { GameState, Role } from '../types';
-import squidwardImg from '../assets/images/squidward_pixel_1788120183042.jpg';
-import spongebobImg from '../assets/images/spongebob_pixel_1788120195895.jpg';
-import sandyImg from '../assets/images/sandy_pixel_1788120209155.jpg';
-import patrickImg from '../assets/images/patrick_pixel_1788120221830.jpg';
-import planktonImg from '../assets/images/plankton_pixel_1788120234070.jpg';
+import squidwardImg from '../assets/images/squidward_funky_1788122008186.jpg';
+import spongebobImg from '../assets/images/spongebob_funky_1788122021542.jpg';
+import sandyImg from '../assets/images/sandy_funky_1788122037010.jpg';
+import patrickImg from '../assets/images/patrick_funky_1788122049362.jpg';
+import planktonImg from '../assets/images/plankton_funky_1788122060611.jpg';
 
 interface Props {
   gameState: GameState;
