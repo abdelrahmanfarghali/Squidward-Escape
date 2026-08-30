@@ -26,10 +26,15 @@ export default function App() {
       alert(msg);
     });
 
+    socket.on('left_room', () => {
+      setGameState(null);
+    });
+
     return () => {
       socket.disconnect();
       socket.off('game_state');
       socket.off('error');
+      socket.off('left_room');
     };
   }, []);
 

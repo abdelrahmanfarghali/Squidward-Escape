@@ -321,10 +321,10 @@ export default function GameScreen({ gameState }: Props) {
             )}
             <div className="mt-4">
               <button
-                onClick={() => socket.emit('disconnect')} // Actually, we should emit leave room, but disconnect works for this prototype
-                className="text-gray-500 underline font-bold"
+                onClick={() => socket.emit('leave_room', { roomId: gameState.roomId })}
+                className="text-gray-500 hover:text-gray-700 underline font-bold"
               >
-                Or leave game (refresh)
+                Or leave room
               </button>
             </div>
           </div>

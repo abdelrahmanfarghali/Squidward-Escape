@@ -38,7 +38,7 @@ export default function LobbyScreen({ gameState }: Props) {
   const hasShafiq = Object.values(gameState.players).some(p => p.role === 'SHAFIQ');
   const hasChaser = Object.values(gameState.players).some(p => p.role !== 'SHAFIQ' && p.role !== null);
   const canStart = me.isHost && hasShafiq && hasChaser;
-  const canPractice = me.isHost && hasShafiq;
+  const canPractice = me.isHost && me.role !== null;
 
   return (
     <div 
@@ -48,13 +48,21 @@ export default function LobbyScreen({ gameState }: Props) {
       <div className="max-w-4xl w-full bg-white/95 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border-4 border-sky-400">
         
         <div className="bg-sky-400 p-6 text-white text-center relative">
+          <button 
+            onClick={() => socket.emit('leave_room', { roomId: gameState.roomId })}
+            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white font-bold py-2 px-4 rounded-lg backdrop-blur transition-all flex items-center gap-2 text-sm shadow-sm"
+          >
+            ← Leave
+          </button>
           <h2 className="text-3xl font-black uppercase tracking-widest drop-shadow-md">
-            Room: {gameState.roomId}
+            {gameState.isPractice ? 'Practice Room' : `Room: ${gameState.roomId}`}
           </h2>
-          <p className="font-semibold mt-2">
-            Players: {Object.keys(gameState.players).length} / {gameState.maxPlayers || 5}
-          </p>
-          {gameState.winner && (
+          {!gameState.isPractice && (
+            <p className="font-semibold mt-2">
+              Players: {Object.keys(gameState.players).length} / {gameState.maxPlayers || 5}
+            </p>
+          )}
+          {gameState.winner && !gameState.isPractice && (
             <div className="mt-4 bg-yellow-300 text-yellow-900 font-bold p-3 rounded-lg inline-block shadow-sm">
               Last Winner: {gameState.winner}
             </div>
@@ -128,23 +136,25 @@ export default function LobbyScreen({ gameState }: Props) {
             <div className="pt-6">
               {me.isHost ? (
                 <div className="flex flex-col gap-3">
-                  <button 
-                    onClick={() => socket.emit('start_game', { roomId: gameState.roomId, practiceMode: false })}
-                    disabled={!canStart}
-                    className={`w-full py-4 rounded-xl font-black text-xl text-white transition-all shadow-lg
-                      ${canStart ? 'bg-green-500 hover:bg-green-600 hover:scale-105 active:scale-95' : 'bg-gray-400 cursor-not-allowed'}
-                    `}
-                  >
-                    START CHAOS
-                  </button>
+                  {!gameState.isPractice && (
+                    <button 
+                      onClick={() => socket.emit('start_game', { roomId: gameState.roomId, practiceMode: false })}
+                      disabled={!canStart}
+                      className={`w-full py-4 rounded-xl font-black text-xl text-white transition-all shadow-lg
+                        ${canStart ? 'bg-green-500 hover:bg-green-600 hover:scale-105 active:scale-95' : 'bg-gray-400 cursor-not-allowed'}
+                      `}
+                    >
+                      START CHAOS
+                    </button>
+                  )}
                   <button 
                     onClick={() => socket.emit('start_game', { roomId: gameState.roomId, practiceMode: true })}
                     disabled={!canPractice}
-                    className={`w-full py-3 rounded-xl font-bold text-lg text-white transition-all shadow-md
+                    className={`w-full ${gameState.isPractice ? 'py-4 text-xl' : 'py-3 text-lg'} rounded-xl font-bold text-white transition-all shadow-md
                       ${canPractice ? 'bg-teal-500 hover:bg-teal-600 hover:scale-105 active:scale-95' : 'bg-gray-300 cursor-not-allowed'}
                     `}
                   >
-                    SOLO PRACTICE
+                    {gameState.isPractice ? 'START PRACTICE' : 'SOLO PRACTICE'}
                   </button>
                 </div>
               ) : (
