@@ -6,6 +6,7 @@ import spongebobImg from '../assets/images/spongebob_funky_1788122021542.jpg';
 import sandyImg from '../assets/images/sandy_funky_1788122037010.jpg';
 import patrickImg from '../assets/images/patrick_funky_1788122049362.jpg';
 import planktonImg from '../assets/images/plankton_funky_1788122060611.jpg';
+import bgImg from '../assets/images/bikini_bottom_funky_1788122072020.jpg';
 
 interface Props {
   gameState: GameState;
@@ -40,8 +41,11 @@ export default function LobbyScreen({ gameState }: Props) {
   const canPractice = me.isHost && hasShafiq;
 
   return (
-    <div className="min-h-screen bg-sky-200 flex flex-col items-center p-8">
-      <div className="max-w-4xl w-full bg-white rounded-2xl shadow-xl overflow-hidden border-4 border-sky-400">
+    <div 
+      className="min-h-screen flex flex-col items-center p-8 bg-cover bg-center"
+      style={{ backgroundImage: `url(${bgImg})` }}
+    >
+      <div className="max-w-4xl w-full bg-white/95 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border-4 border-sky-400">
         
         <div className="bg-sky-400 p-6 text-white text-center relative">
           <h2 className="text-3xl font-black uppercase tracking-widest drop-shadow-md">

@@ -38,6 +38,30 @@ async function startServer() {
   io.on('connection', (socket: Socket) => {
     console.log('User connected:', socket.id);
 
+    socket.on('start_practice_match', ({ playerName }) => {
+      const roomId = generateRoomId();
+      const room = createNewRoom(roomId, 1);
+      rooms.set(roomId, room);
+
+      room.players[socket.id] = {
+        id: socket.id,
+        name: playerName || 'Player',
+        role: 'SHAFIQ',
+        x: 100,
+        y: 100,
+        isCalling: false,
+        ready: true,
+        isHost: true,
+        score: 0
+      };
+
+      room.status = 'PLAYING';
+      room.isPractice = true;
+
+      socket.join(roomId);
+      io.to(roomId).emit('game_state', room);
+    });
+
     socket.on('join_room', ({ roomId, playerName, maxPlayers }) => {
       roomId = roomId.toUpperCase();
       let room = rooms.get(roomId);
